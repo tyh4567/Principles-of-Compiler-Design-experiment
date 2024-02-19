@@ -1,0 +1,1656 @@
+#include "../include/util.h"
+
+enum
+{
+    INT, 
+    INTARRAY
+};
+
+char variable_name[1010][16]; 
+int variable_type[1010][1];
+int variable_value[1010][3];
+int variable_id = 1; 
+int tem_var = 1; 
+char tem_to_use[16];
+void test11()
+{
+    return; 
+}
+void test12(char* ls)
+{
+    printf("ls = %s\n", ls); 
+    return; 
+}
+void send_var(char* name, int type, int value1, int value2, int value3)
+{
+    strcpy(variable_name[variable_id], name); 
+    variable_type[variable_id][0] = type; 
+    variable_value[variable_id][0] = value1; 
+    variable_value[variable_id][1] = value2; 
+    variable_value[variable_id][2] = value3; 
+    variable_id++; 
+}
+
+int get_var(char* name)
+{
+    for(int i = 1; i < variable_id; i++)
+    {
+        if(strcmp(name, variable_name[i]))
+        {
+            return variable_value[i][0]; 
+        }
+    }
+}
+
+int lookup_var(char* name)//return id; 
+{
+    for(int i = 1; i < variable_id; i++)
+    {
+        if(strcmp(name, variable_name[i]))
+        {
+            return i;
+        }
+    }
+    return 0; 
+}
+
+char* get_tem_var()
+{
+    sprintf(tem_to_use+1, "%d", tem_var);
+    tem_to_use[0] = '#';
+    tem_var++;
+    return tem_to_use;
+}
+
+struct quaternary
+{
+    char op[16]; 
+    char r1[16]; 
+    char r2[16]; 
+    char rd[16];
+};
+
+void print_va()
+{
+    printf("variable table\n"); 
+    printf("id   type   val\n"); 
+    for(int i = 0; i < variable_id; i++)
+    {
+        printf("%6s   %d   %d\n", variable_name[i], variable_type[i][0], variable_value[i][0]);
+    }
+    return;
+}
+
+int exp_result = 0; 
+
+struct quaternary qua[10010]; 
+int qua_num = 0; 
+
+struct token* next; 
+struct token* nextnext; 
+struct token* nextnextnext; 
+struct token tokens_yffx[1000000];
+
+void send_qua(char* op, char* r1, char* r2, char* rd)
+{
+    strcpy(qua[qua_num].op, op);
+    strcpy(qua[qua_num].r1, r1);
+    strcpy(qua[qua_num].r2, r2);
+    strcpy(qua[qua_num].rd, rd);
+    qua_num++;
+}
+
+void print_qua()
+{
+    for(int i = 0; i < qua_num; i++)
+    {
+        printf("(%6s, %6s, %6s, %6s)\n", qua[i].op, qua[i].r1, qua[i].r2, qua[i].rd); 
+    }
+    return; 
+}
+
+void init_yffx(struct token* t1);
+void run_yffx();
+void looknextnextnext();
+void looknextnext();
+void nextpoint(); 
+void parserCompUnit();
+void parserDecl();
+void parserConstDecl();
+void parserBType();
+void parserConstDef();
+char* parserConstInitVal();
+void parserVarDecl();
+void parserVarDef();
+char* parserInitVal();
+void parserFuncDef();
+void parserMainFuncDef();
+void parserFuncType();
+void parserFuncFParams();
+void parserFuncFParam();
+void parserBlock();
+void parserBlockItem();
+void parserStmt();
+char* parserExp();
+void parserCond();
+char* parserLVal();
+char* parserPrimaryExp();
+char* parserNumber();
+char* parserUnaryExp();
+void parserUnaryOp();
+void parserFuncRParams();
+char* parserMulExp();
+char* parserAddExp();
+char* parserRelExp();
+void parserEqExp();
+void parserLAndExp();
+void parserLOrExp();
+char* parserConstExp();
+
+#define ruleBType (next->type == INTTK)
+#define ruleVarDecl (next->type == INTTK)
+#define ruleVarDef (next->type == IDENFR)
+#define ruleConstDef (next->type == IDENFR)
+#define ruleMainFuncDef (next->type == INTTK)
+#define ruleFuncType (next->type == VOIDTK || next->type == INTTK)
+#define ruleBlock (next->type == LBRACE)
+#define ruleLVal (next->type == IDENFR)
+#define rulePrimaryExp (next->type == INTCON || next->type == IDENFR || next->type == LPARENT)
+#define ruleNumber (next->type == INTCON)
+#define ruleUnaryOp (next->type == PLUS || next->type == MINU || next->type == NOT)
+#define ruleConstDecl (next->type == CONSTTK)
+#define ruleStmt (next->type == IDENFR || next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == LBRACE || next->type == SEMICN || next->type == IFTK  || next->type == WHILETK || next->type == BREAKTK || next->type == CONTINUETK || next->type == RETURNTK || next->type == PRINTFTK)
+
+#define ruleCompUnit (ruleDecl || ruleFuncDef || ruleMainFuncDef)
+#define ruleDecl (ruleConstDecl || ruleVarDecl)
+
+#define ruleInitVal (ruleExp || next->type == LBRACE)//(next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT || next->type == LBRACE)
+#define ruleFuncDef (ruleFuncType)//(next->type == VOIDTK || next->type == INTTK)
+
+#define ruleFuncFParams (ruleFuncFParam)//(next->type == INTTK)
+#define ruleFuncFParam (ruleBType)//(next->type == INTTK)
+#define ruleBlockItem (ruleDecl || ruleStmt)//(next->type == CONSTTK || next->type == INTTK || next->type == IDENFR || next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == LBRACE || next->type == SEMICN || next->type == IFTK  || next->type == WHILETK || next->type == BREAKTK || next->type == RETURNTK || next->type == PRINTFTK)
+#define ruleCond (ruleLOrExp)//(next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT)
+#define ruleUnaryExp (rulePrimaryExp || ruleUnaryOp || next->type == IDENFR)  //(next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT)
+#define ruleFuncRParams (ruleExp)//(next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT)
+#define ruleMulExp (ruleUnaryExp)//(next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT)
+#define ruleAddExp (ruleMulExp)//(next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT)
+#define ruleExp  (ruleAddExp)// (next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT)
+#define ruleRelExp (ruleAddExp)//(next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT)
+#define ruleConstExp (ruleAddExp)//(next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT)
+#define ruleEqExp (ruleRelExp) //(next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT)
+#define ruleLAndExp (ruleEqExp)//(next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT)
+#define ruleLOrExp (ruleLAndExp)//(next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT)
+#define ruleConstInitVal (ruleConstExp || next->type == LBRACE) //(next->type == LBRACE || next->type == IDENFR || next->type == LPARENT)
+
+void init_yffx(struct token* t1)
+{
+    for(int i = 0; i < 1000000; i++)
+    {
+        tokens_yffx[i] = t1[i];
+    }
+    next = tokens_yffx;
+}
+
+void run_yffx()
+{
+    parserCompUnit();
+    printf("语法分析成功\n");
+
+    printf("开始中间代码生成\n"); 
+    print_qua();
+
+    // print_va();
+}
+
+void nextpoint()
+{
+    switch(next->type)
+        {
+            case IDENFR     : printf("IDENFR     :   %s\n", next->value); break;
+            case INTCON     : printf("INTCON     :   %s\n", next->value); break;
+            case STRCON     : printf("STRCON     :   %s\n", next->value); break;
+            case MAINTK     : printf("MAINTK     :   %s\n", next->value); break;
+            case CONSTTK    : printf("CONSTTK    :   %s\n", next->value); break;
+            case INTTK      : printf("INTTK      :   %s\n", next->value); break;
+            case BREAKTK    : printf("BREAKTK    :   %s\n", next->value); break;
+            case CONTINUETK : printf("CONTINUETK :   %s\n", next->value); break;
+            case IFTK       : printf("IFTK       :   %s\n", next->value); break;
+            case ELSETK     : printf("ELSETK     :   %s\n", next->value); break;
+            case NOT        : printf("NOT        :   %s\n", next->value); break;
+            case AND        : printf("AND        :   %s\n", next->value); break;
+            case OR         : printf("OR         :   %s\n", next->value); break;
+            case WHILETK    : printf("WHILETK    :   %s\n", next->value); break;
+            case GETINTTK   : printf("GETINTTK   :   %s\n", next->value); break;
+            case PRINTFTK   : printf("PRINTFTK   :   %s\n", next->value); break;
+            case RETURNTK   : printf("RETURNTK   :   %s\n", next->value); break;
+            case PLUS       : printf("PLUS       :   %s\n", next->value); break;
+            case MINU       : printf("MINU       :   %s\n", next->value); break;
+            case VOIDTK     : printf("VOIDTK     :   %s\n", next->value); break;
+            case MULT       : printf("MULT       :   %s\n", next->value); break;
+            case DIV        : printf("DIV        :   %s\n", next->value); break;
+            case MOD        : printf("MOD        :   %s\n", next->value); break;
+            case LSS        : printf("LSS        :   %s\n", next->value); break;
+            case LEQ        : printf("LEQ        :   %s\n", next->value); break;
+            case GRE        : printf("GRE        :   %s\n", next->value); break;
+            case GEQ        : printf("GEQ        :   %s\n", next->value); break;
+            case EQL        : printf("EQL        :   %s\n", next->value); break;
+            case NEQ        : printf("NEQ        :   %s\n", next->value); break;
+            case ASSIGN     : printf("ASSIGN     :   %s\n", next->value); break;
+            case SEMICN     : printf("SEMICN     :   %s\n", next->value); break;
+            case COMMA      : printf("COMMA      :   %s\n", next->value); break;
+            case LPARENT    : printf("LPARENT    :   %s\n", next->value); break;
+            case RPARENT    : printf("RPARENT    :   %s\n", next->value); break;
+            case LBRACK     : printf("LBRACK     :   %s\n", next->value); break;
+            case RBRACK     : printf("RBRACK     :   %s\n", next->value); break;
+            case LBRACE     : printf("LBRACE     :   %s\n", next->value); break;
+            case RBRACE     : printf("RBRACE     :   %s\n", next->value); break;
+            case NOTYPE     : printf("NOTYPE     :   %s\n", next->value); break;
+        }
+    next += 1;
+}
+
+void looknextnext()
+{
+    nextnext = next + 1;
+}
+
+void looknextnextnext()
+{
+    nextnextnext = next + 2;
+}
+
+
+void parserCompUnit()
+{
+    test11();
+    looknextnext(); 
+    looknextnextnext();
+    while(next->type == CONSTTK || (next->type == INTTK && nextnext->type == IDENFR && (nextnextnext->type == LBRACK || nextnextnext->type == ASSIGN)))
+    {
+        parserDecl();
+        looknextnext(); 
+        looknextnextnext();
+    }
+
+    looknextnext(); 
+    looknextnextnext();
+    while((next->type == VOIDTK || next->type == INTTK) && nextnext->type == IDENFR && nextnextnext->type == LPARENT)
+    {
+        printf("#$#$#\n");
+        parserFuncDef();
+        looknextnext(); 
+        looknextnextnext();
+    }
+
+    if(next->type == INTTK)
+    {
+        printf("#$#$#1\n");
+        parserMainFuncDef();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+    printf("<CompUnit>\n");
+    return;
+}
+
+void parserDecl() //Decl first(next->type == CONSTTK || next->type == INTTK)
+{
+    if(ruleConstDecl) 
+    {
+        parserConstDecl();  
+    }
+    else if(ruleVarDecl)
+    {
+        parserVarDecl(); 
+    }
+    else 
+    {
+        printf("error in : %s", next->value); exit(-1);  
+    }
+    //printf("<Decl>\n");
+    return; 
+}
+
+void parserConstDecl()
+{
+    if(next->type == CONSTTK)
+    {
+        nextpoint();
+    }
+    else 
+    {
+        printf("error in : %s", next->value); exit(-1);  
+    }
+    if(ruleBType) ///hit btype
+    {
+        parserBType();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1);  
+    }
+    if(ruleConstDef) //hit constdef
+    {
+        parserConstDef();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1);  
+    }
+    while(next->type == COMMA)
+    {
+        nextpoint(); 
+        if(ruleConstDef) //hit constdef
+        {
+            parserConstDef();
+        }
+        else 
+        {
+            printf("error in : %s", next->value); exit(-1);  
+        }
+    }
+    if(next->type == SEMICN)
+    {
+        nextpoint(); 
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1);  
+    }
+    printf("<ConstDecl>\n");
+    return; 
+}
+
+void parserBType() //BType first(next->type == INTTK)
+{
+    if(next->type == INTTK)
+    {
+        nextpoint(); 
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1);  
+    }
+    //printf("<BType>\n");
+    return;
+}
+
+void parserConstDef()// ConstDef first(next->type == IDENFR)
+{
+    int v_id = variable_id; 
+    if(next->type == IDENFR)
+    {
+        send_var(next->value, INT, 0, 0, 0); 
+        nextpoint();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+    int now_i = 1; 
+    char* ls; 
+    while(next->type == LBRACK)
+    {
+        variable_type[v_id][0] = INTARRAY; 
+        nextpoint();
+        if(ruleConstExp)
+        {
+            ls = parserConstExp(); 
+            // if(now_i >= 3) 
+            // {
+            //     printf("error array, too long\n");
+            //     exit(-1);
+            // }
+            // variable_value[v_id][now_i++] = atoi(ls);
+        }
+        else
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+
+        if(next->type == RBRACK)
+        {
+            nextpoint();
+        }
+        else 
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+    }
+
+    if(next->type == ASSIGN)
+    {
+        nextpoint();
+    }
+    else{
+        printf("error in : %s", next->value); exit(-1); 
+    }
+
+    if(ruleConstInitVal)
+    {
+        char* ls = parserConstInitVal(); 
+        variable_value[variable_id][0] = atoi(ls);
+    }
+    else 
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+    printf("<ConstDef>\n");
+    return;
+}
+
+char* parserConstInitVal() //ConstExp first(IDENFR,LPARENT) ConstInitVal first(LBRACE,IDENFR,LPARENT)
+{
+    char* ls; 
+    if(ruleConstExp)
+    {
+        ls = parserConstExp(); 
+    }
+    else if(next->type == LBRACE)
+    {
+        nextpoint(); 
+        if(ruleConstInitVal)
+        {
+            ls = parserConstInitVal(); 
+            while(next->type == COMMA)
+            {
+                nextpoint(); 
+                if(ruleConstInitVal)
+                {
+                    parserConstInitVal(); 
+                }
+            }
+
+        }
+        if(next->type == RBRACE)
+        {
+            nextpoint(); 
+        }
+        else 
+        {
+            printf("error in : %s", next->value); exit(-1);  
+        }
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1);  
+    }
+    printf("<ConstInitVal>\n");
+    return ls; 
+}
+
+void parserVarDecl() //VarDecl first(next->type == INTTK)
+{
+    if(ruleBType)
+    {
+        parserBType(); 
+    }
+    else 
+    {
+        printf("error in : %s", next->value); exit(-1);  
+    }
+
+    if(ruleVarDef)
+    {
+        parserVarDef();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+
+    while(next->type == COMMA)
+    {
+        nextpoint(); 
+        if(next->type == IDENFR)
+        {
+            parserVarDef();
+        }
+    }
+
+    if(next->type == SEMICN)
+    {
+        nextpoint();
+    }
+    else 
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+    printf("<VarDecl>\n");
+    return;
+}
+
+void parserVarDef() //VarDef first(next->type == IDENFR)
+{
+    int v_id = variable_id; 
+    if(next->type == IDENFR)
+    {
+        send_var(next->value, INT, 0, 0, 0);
+        nextpoint();
+    }
+    else 
+    {
+        return;
+    }
+    int now_i = 1; 
+    while(next->type == LBRACK)
+    {
+        variable_type[v_id][0] = INTARRAY; 
+        nextpoint();
+        if(ruleConstExp)
+        {
+            if(now_i >= 3) 
+            {
+                printf("array error, too long\n"); 
+                exit(-1);
+            }
+            char* ls = parserConstExp(); 
+            variable_value[v_id][now_i] == atoi(ls);
+        }
+        else
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+
+        if(next->type == RBRACK)
+        {
+            nextpoint();
+        }
+        else 
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+    }
+
+
+    if(next->type == ASSIGN)
+    {
+        nextpoint();
+        if(ruleInitVal)
+        {
+            char* ls = parserInitVal();
+            variable_value[v_id][0] = atoi(ls);
+            send_qua(":=", ls, "null", variable_name[v_id]);
+        }
+        else
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+    }
+    printf("<VarDef>\n");
+    return;
+}
+
+char* parserInitVal() //InitVal first(next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT || next->type == LBRACE)
+{
+    char* ls;
+    if(ruleExp)
+    {
+        ls = parserExp();
+    }
+    else if(next->type == LBRACE)
+    {
+        nextpoint();
+        if(ruleInitVal)
+        {
+            ls = parserInitVal();
+            while(next->type == COMMA)
+            {
+                nextpoint();
+                if(ruleInitVal)
+                {
+                    parserInitVal();
+                }
+                else
+                {
+                    printf("error in : %s", next->value); exit(-1); 
+                }
+            }
+
+        }
+
+        if(next->type == RBRACE)
+        {
+            nextpoint();
+        }
+        else
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+    }
+    else 
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+    printf("<InitVal>\n");
+    return ls;
+}
+
+void parserFuncDef() //FuncDef first(next->type == VOIDTK || next->type == INTTK)
+{
+    if(ruleFuncType)
+    {
+        parserFuncType();
+    }
+    else 
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+
+    if(next->type == IDENFR)
+    {
+        nextpoint();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+
+    if(next->type == LPARENT)
+    {
+        nextpoint();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+
+    if(ruleFuncFParams)
+    {
+        parserFuncFParams();
+    }
+
+    if(next->type == RPARENT)
+    {
+        nextpoint();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+
+    if(ruleBlock)
+    {
+        parserBlock();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+
+    printf("<FuncDef>\n");
+    return;
+}
+
+void parserMainFuncDef() //MainFuncDef first(next->type == INTTK)
+{
+    if(next->type == INTTK)
+    {
+        nextpoint();
+    }
+    else 
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+
+    if(next->type == MAINTK)
+    {
+        nextpoint();
+    }
+    else 
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+
+    if(next->type == LPARENT)
+    {
+        nextpoint();
+    }
+    else 
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+
+    if(next->type == RPARENT)
+    {
+        nextpoint();
+    }
+    else 
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+    if(ruleBlock)
+    {
+        parserBlock();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+    
+    printf("<MainFuncDef>\n");
+    return;
+}
+
+void parserFuncType() //FuncType first(next->type == VOIDTK || next->type == INTTK)
+{
+    if(next->type == VOIDTK || next->type == INTTK)
+    {
+        nextpoint();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+    printf("<FuncType>\n");
+    return;
+}
+
+void parserFuncFParams() //FuncFParams first(next->type == INTTK) 
+{
+    if(ruleFuncFParam)
+    {
+        parserFuncFParam();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+
+    while(next->type == COMMA)
+    {
+        nextpoint();
+        if(ruleFuncFParam)
+        {
+            parserFuncFParam();
+        }
+        else
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+    }
+
+    printf("<FuncFParams>\n");
+    return;
+}
+
+void parserFuncFParam()//FuncFParam first(next->type == INTTK) 
+{
+    if(ruleBType)
+    {
+        parserBType();
+    }
+    else 
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+
+    if(next->type == IDENFR)
+    {
+        nextpoint();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+
+    if(next->type == LBRACK)
+    {
+        nextpoint();
+        if(next->type == RBRACK)
+        {
+            nextpoint();
+
+            while(next->type == LBRACK)
+            {
+                nextpoint();
+                if(ruleConstExp)
+                {
+                    parserConstExp();
+                }
+                else
+                {
+                    printf("error in : %s", next->value); exit(-1); 
+                }
+
+                if(next->type == RBRACK)
+                {
+                    nextpoint();
+                }
+                else
+                {
+                    printf("error in : %s", next->value); exit(-1); 
+                }
+            }
+
+        }
+        else
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+    }
+
+    printf("<FuncFParam>\n");
+    return;
+}
+
+void parserBlock() // Block first(next->type == LBRACE)
+{
+    if(next->type == LBRACE)
+    {
+        nextpoint();
+    }
+    else 
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+ 
+    while(ruleBlockItem)
+    {
+        parserBlockItem();
+    }
+    
+    if(next->type == RBRACE)
+    {
+        nextpoint();
+    }
+    else 
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+    printf("<Block>\n");
+    return;
+}
+
+void parserBlockItem() //BlockItem first(next->type == CONSTTK || next->type == INTTK || next->type == IDENFR || next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == LBRACE || next->type == SEMICN || next->type == IFTK  || next->type == WHILETK || next->type == BREAKTK || next->type == RETURNTK || next->type == PRINTFTK)
+{
+    if(ruleDecl)
+    {
+        parserDecl();
+    }
+    else if(ruleStmt)
+    {
+        parserStmt();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+    //printf("<BlockItem>\n");
+    return;
+}
+
+void parserStmt() // BlockItem first() next->type == IDENFR || next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == LBRACE || next->type == SEMICN || next->type == IFTK  || next->type == WHILETK || next->type == BREAKTK || next->type == RETURNTK || next->type == PRINTFTK
+{
+    
+    if(next->type == IFTK)
+    {
+        nextpoint();
+        if(next->type == LPARENT)
+        {
+            nextpoint();
+            if(ruleCond)
+            {
+                parserCond();
+                if(next->type == RPARENT)
+                {
+                    nextpoint();
+                    if(ruleStmt)
+                    {
+                        parserStmt();
+                        if(next->type == ELSETK)
+                        {
+                            nextpoint();
+                            if(ruleStmt)
+                            {
+                                parserStmt();
+                            }
+                            else
+                            {
+                                printf("error in : %s", next->value); exit(-1); 
+                            }
+                        }
+                        send_qua("JMP", "null", "null", "--");
+                    }
+                    else
+                    {
+                        printf("error in : %s", next->value); exit(-1); 
+                    }
+                }
+                else
+                {
+                    printf("error in : %s", next->value); exit(-1); 
+                }
+            }
+            else
+            {
+                printf("error in : %s", next->value); exit(-1); 
+            }
+            send_qua("JMP", "null", "null", "--");
+        }
+        else
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+    }  
+    else if(next->type == WHILETK)
+    {
+        nextpoint();
+        if(next->type == LPARENT)
+        {
+            nextpoint();
+            if(ruleCond)
+            {
+                parserCond();
+                if(next->type == RPARENT)
+                {
+                    nextpoint();
+                    if(ruleStmt)
+                    {
+                        parserStmt();
+                    }
+                    else
+                    {
+                        printf("error in : %s", next->value); exit(-1); 
+                    }
+                }
+                else
+                {
+                    printf("error in : %s", next->value); exit(-1); 
+                }
+            }
+            else
+            {
+                printf("error in : %s", next->value); exit(-1); 
+            }
+        }
+        else
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+        send_qua("JMP", "null", "null", "--");
+    }
+    else if(next->type == BREAKTK)
+    {
+        nextpoint(); 
+        if(next->type == SEMICN)
+        {
+            nextpoint();
+        }
+        else 
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+    }
+    else if(next->type == CONTINUETK)
+    {
+        nextpoint(); 
+        if(next->type == SEMICN)
+        {
+            nextpoint();
+        }
+        else 
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+    }
+    else if(next->type == RETURNTK)
+    {
+        nextpoint();
+        char* ls; 
+        if(ruleExp)
+        {
+            ls = parserExp();
+        }
+        if(next->type == SEMICN)
+        {
+            nextpoint();
+        }
+        else 
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+        send_qua("RETURN", ls, "null", "null");
+    }
+    else if(next->type == PRINTFTK)
+    {
+        
+        nextpoint();
+        if(next->type == LPARENT)
+        {
+            nextpoint();
+            if(next->type == STRCON)
+            {
+                nextpoint();
+                while(next->type == COMMA)
+                {
+                    nextpoint();
+                    if(ruleExp)
+                    {
+                        parserExp();
+                    }
+                    else 
+                    {
+                        printf("error in : %s", next->value); exit(-1); 
+                    }
+                }
+                
+                if(next->type == RPARENT)
+                {
+                    nextpoint();
+                    if(next->type == SEMICN)
+                    {
+                        nextpoint();
+                    }
+                    else
+                    {
+                        printf("error in : %s", next->value); exit(-1); 
+                    }
+                }
+                else 
+                {
+                    printf("error in : %s", next->value); exit(-1); 
+                }
+            }
+            else 
+            {
+                printf("error in : %s", next->value); exit(-1); 
+            }
+            send_qua("JMP", "null", "null", "PRINT");
+        }
+        else 
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+    
+    }
+    else if(ruleBlock)
+    {
+        parserBlock();
+    }
+    else if(next->type == SEMICN)
+    {
+        nextpoint();
+    }
+    else if(ruleLVal)
+    {
+        //不能确定
+        char this_name[16];
+        struct token* ls = next;
+        char* this_name_p = parserLVal();
+        strcpy(this_name, this_name_p);
+        printf("$#$#$#%s\n", this_name);
+        if(next->type != ASSIGN)//应该用exp归约
+        {
+            next = ls; 
+            parserExp();
+            if(next->type == SEMICN)
+            {
+                nextpoint();
+            }
+            else
+            {
+                printf("error in : %s", next->value); exit(-1); 
+            }
+        }
+        else
+        {
+            nextpoint();
+            if(next->type == GETINTTK)
+            {
+                nextpoint();
+                char* this_val = get_tem_var();
+                send_qua("JMP", "null", "null", "GETINT");
+                send_var(this_val, INT, 0, 0, 0);
+                send_qua(":=", "null", "null", this_val);
+                printf("$#$#$#%s\n", this_name);
+                send_qua(":=", this_val, "null", this_name);
+                variable_value[lookup_var(this_name)][0] = 0; 
+                if(next->type == LPARENT)
+                {
+                    nextpoint();
+                    if(next->type == RPARENT)
+                    {
+                        nextpoint();
+                        if(next->type == SEMICN)
+                        {
+                            nextpoint();
+                        }
+                        else 
+                        {
+                            printf("error in : %s", next->value); exit(-1); 
+                        }
+                    }
+                    else 
+                    {
+                        printf("error in : %s", next->value); exit(-1); 
+                    }
+                }
+                else 
+                {
+                    printf("error in : %s", next->value); exit(-1); 
+                }
+            }
+            else if(ruleExp)
+            {
+                char* lsv = parserExp();
+                variable_value[lookup_var(this_name)][0] = atoi(lsv);
+                send_qua(":=", lsv, "null", this_name);
+                if(next->type == SEMICN)
+                {
+                    nextpoint();
+                }
+                else 
+                {
+                    printf("error in : %s", next->value); exit(-1); 
+                }
+            }
+            else 
+            {
+                printf("error in : %s", next->value); exit(-1); 
+            }
+
+        }
+    }
+    else if(ruleExp)
+    {
+        parserExp();
+        if(next->type == SEMICN)
+        {
+            nextpoint();
+        }
+        else
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+    }
+    else 
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+    
+    printf("<Stmt>\n");
+    return;
+}
+
+char* parserExp() //Exp first(next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT)
+{
+    char* ls; 
+    if(ruleAddExp)
+    {
+        ls = parserAddExp();
+    }
+    else 
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+    printf("<Exp>\n");
+    return ls;
+}
+
+void parserCond() //Cond first(next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT)
+{
+    if(ruleLOrExp)
+    {
+        parserLOrExp();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+    
+    printf("<Cond>\n");
+    return;
+}
+
+char* parserLVal()//LVal first(next->type == IDENFR)
+{
+    char* ls ; 
+    if(next->type == IDENFR)
+    {
+        int id = lookup_var(next->value);
+        // if(id == 0)
+        // {
+        //     printf("undefine variable\n"); 
+        //     exit(-1);
+        // }
+
+        // if(id == 0)
+        // {
+        //     send_var(next->value, INT, 0, 0, 0);
+        // }
+        // id = lookup_var(next->value);
+
+        ls = variable_name[id+1]; 
+        nextpoint();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+printf("$#$#$#666%s\n", ls);
+    while(next->type == LBRACK)
+    {
+        nextpoint();
+        if(ruleExp)
+        {
+            parserExp();
+        }
+        else
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+        if(next->type == RBRACK)
+        {
+            nextpoint();
+        }
+        else
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+    }
+
+    printf("<LVal>\n");
+    printf("$#$#$#666%s\n", ls);
+    return ls;
+}
+
+char* parserPrimaryExp() //PrimaryExp first(next->type == INTCON || next->type == IDENFR || next->type == LPARENT)
+{
+    char* ls; 
+    if(next->type == LPARENT)
+    {
+        if(ruleExp)
+        {
+            ls = parserExp();
+        }
+        else
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+
+        if(next->type == RPARENT)
+        {
+            nextpoint();
+        }
+        else
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+    }
+    else if(ruleLVal)
+    {
+        ls = parserLVal();
+    }
+    else if(ruleNumber)
+    {
+        ls = parserNumber();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+    
+    printf("<PrimaryExp>\n");
+    return ls;
+}
+
+char* parserNumber() //Number first(next->type == INTCON)
+{
+    char* ls; 
+    if(next->type == INTCON)
+    {
+        send_qua(":=", next->value, "null", get_tem_var());
+        send_var(tem_to_use, INT, atoi(next->value), 0, 0);
+        nextpoint();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+    ls = tem_to_use; 
+    printf("<Number>\n");
+    return ls;
+}
+
+//undo
+char* parserUnaryExp() //UnaryExp first(next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT) 
+{
+    char* ls; 
+    looknextnext();
+    if(next->type == IDENFR && nextnext->type == LPARENT)
+    {
+        nextpoint();
+        nextpoint();
+        if(ruleFuncRParams)
+        {
+            parserFuncRParams();
+        }
+        if(next->type == RPARENT)
+        {
+            nextpoint();
+        }
+        else
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+    }
+    else if(rulePrimaryExp)
+    {
+        ls = parserPrimaryExp();
+    }
+    else if(ruleUnaryOp)
+    {
+        parserUnaryOp();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+
+    printf("<UnaryExp>\n");
+    return ls;
+}
+
+void parserUnaryOp() //UnaryOp first(next->type == PLUS || next->type == MINU || next->type == NOT)
+{
+    if(next->type == PLUS || next->type == MINU || next->type == NOT)
+    {
+        nextpoint();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+    printf("<UnaryOp>\n");
+    return;
+}
+
+void parserFuncRParams() //FuncRParams first(next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT)
+{
+    if(ruleExp)
+    {
+        parserExp();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+
+    while(next->type == COMMA)
+    {
+        nextpoint();
+        if(ruleExp)
+        {
+            parserExp();
+        }
+        else
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+    }
+
+    printf("<FuncRParams>\n");
+    return;
+}
+
+char* parserMulExp() //MulExp first(next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT)
+{
+    char* ls;
+    if(ruleUnaryExp)
+    {
+        ls = parserUnaryExp();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+
+    while(next->type == MULT || next->type == DIV || next->type == MOD)
+    {
+        int ls_typ = 0; 
+        if(next->type == MULT) ls_typ = 0; 
+        else if(next->type == DIV) ls_typ = 1; 
+        else if(next->type == MOD) ls_typ = 2;
+        nextpoint();
+        if(ruleUnaryExp)
+        {
+            char lsr[16]; 
+            strcpy(lsr, ls); 
+            ls = parserUnaryExp();
+            test11();
+            if(ls_typ == 0)
+            {
+                send_qua("*", lsr, ls, get_tem_var());
+                send_var(tem_to_use, INT,  variable_value[lookup_var(lsr)][0] * variable_value[lookup_var(ls)][0], 0, 0);
+            }
+            else if(ls_typ == 1)
+            {
+                send_qua("/", lsr, ls, get_tem_var());
+                send_var(tem_to_use, INT,  variable_value[lookup_var(lsr)][0] / variable_value[lookup_var(ls)][0], 0, 0);
+            }
+            else if(ls_typ == 2)
+            {
+                send_qua("%", lsr, ls, get_tem_var());
+                send_var(tem_to_use, INT,  variable_value[lookup_var(lsr)][0] % variable_value[lookup_var(ls)][0], 0, 0);
+            }
+            test11();
+            ls = tem_to_use;
+        }
+        else
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+    }
+    printf("<MulExp>\n");
+    return ls;
+}
+
+char* parserAddExp() //AddExp first(next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT)
+{
+    char* ls; 
+    if(ruleMulExp)
+    {
+        ls = parserMulExp();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+
+    while(next->type == PLUS || next->type == MINU)
+    {
+        int ls_typ = 0; 
+        if(next->type == PLUS) ls_typ = 0; 
+        else if(next->type == MINU) ls_typ = 1; 
+        nextpoint();
+        if(ruleMulExp)
+        {
+            char lsr[16];  
+            strcpy(lsr, ls); 
+            ls = parserMulExp();
+            if(ls_typ == 0)
+            {
+                send_qua("+", lsr, ls, get_tem_var());
+                send_var(tem_to_use, INT,  variable_value[lookup_var(lsr)][0] + variable_value[lookup_var(ls)][0], 0, 0);
+            }
+            else if(ls_typ == 1)
+            {
+                send_qua("-", lsr, ls, get_tem_var());
+                send_var(tem_to_use, INT,  variable_value[lookup_var(lsr)][0] - variable_value[lookup_var(ls)][0], 0, 0);
+            }
+            ls = tem_to_use; 
+        }
+        else
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+    }
+
+    printf("<AddExp>\n");
+    return ls;
+}
+
+char* parserRelExp() //RelExp first(next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT)
+{
+    char* ls; 
+    if(ruleAddExp)
+    {
+        ls = parserAddExp();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+
+    while(next->type == LSS || next->type == LEQ || next->type == GRE || next->type == GEQ)
+    {
+        int ls_typ = 0; 
+        if(next->type == LSS) ls_typ = 0; 
+        else if(next->type == LEQ) ls_typ = 1; 
+        else if(next->type == GRE) ls_typ = 2; 
+        else if(next->type == GEQ) ls_typ = 3; 
+        nextpoint();
+        if(ruleAddExp)
+        {
+            char lsr[10]; 
+            strcpy(lsr, ls); 
+            ls = parserAddExp();
+            if(ls_typ == 0)
+            {
+                send_qua("<", lsr, ls, get_tem_var());
+                send_var(tem_to_use, INT,  variable_value[lookup_var(lsr)][0] < variable_value[lookup_var(ls)][0], 0, 0);
+            }
+            else if(ls_typ == 1)
+            {
+                send_qua("<=", lsr, ls, get_tem_var());
+                send_var(tem_to_use, INT,  variable_value[lookup_var(lsr)][0] <= variable_value[lookup_var(ls)][0], 0, 0);
+            }
+            else if(ls_typ == 2)
+            {
+                send_qua(">", lsr, ls, get_tem_var());
+                send_var(tem_to_use, INT,  variable_value[lookup_var(lsr)][0] > variable_value[lookup_var(ls)][0], 0, 0);
+            }
+            else if(ls_typ == 3)
+            {
+                send_qua(">=", lsr, ls, get_tem_var());
+                send_var(tem_to_use, INT,  variable_value[lookup_var(lsr)][0] >= variable_value[lookup_var(ls)][0], 0, 0);
+            }
+            ls = tem_to_use; 
+            
+        }
+        else
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+    }
+
+    printf("<RelExp>\n");
+    return ls;
+}
+
+void parserEqExp() //EqExp first(next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT)
+{
+    
+    if(ruleRelExp)
+    {
+        parserRelExp();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+
+    while(next->type == EQL || next->type == NEQ)
+    {
+        nextpoint();
+        if(ruleRelExp)
+        {
+            parserRelExp();
+        }
+        else
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+    }
+
+    printf("<EqExp>\n");
+    return;
+}
+
+void parserLAndExp()//LAndExp first(next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT)
+{
+    
+    if(ruleEqExp)
+    {
+        parserEqExp();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+
+    while(next->type == AND)
+    {
+        nextpoint();
+        if(ruleEqExp)
+        {
+            parserEqExp();
+        }
+        else
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+    }
+
+    printf("<LAndExp>\n");
+    return;
+}
+
+void parserLOrExp() //LOrExp first(next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT)
+{
+
+    if(ruleLAndExp)
+    {
+        parserLAndExp();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+
+    while(next->type == OR)
+    {
+        nextpoint();
+        if(ruleLAndExp)
+        {
+            parserLAndExp();
+        }
+        else
+        {
+            printf("error in : %s", next->value); exit(-1); 
+        }
+    }
+
+    printf("<LOrExp>\n");
+    return;
+}
+
+char* parserConstExp() //ConstExp first(next->type == INTCON || next->type == IDENFR || next->type == LPARENT || next->type == PLUS || next->type == MINU || next->type == NOT)
+{
+    char* ls; 
+    if(ruleAddExp)
+    {
+        ls = parserAddExp();
+    }
+    else
+    {
+        printf("error in : %s", next->value); exit(-1); 
+    }
+    
+    printf("<ConstExp>\n");
+    return ls;
+}
