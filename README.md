@@ -3,5 +3,4 @@
 ## 运行
 传入的文件地址可以在cffx.c文件中的run_cffx函数内修改
 在./byyl目录内运行以下命令
-`make clean
-make`
+`make clean \nmake`
